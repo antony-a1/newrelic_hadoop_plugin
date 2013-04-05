@@ -8,6 +8,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.logging.Logger;
 
 import org.apache.commons.configuration.SubsetConfiguration;
@@ -31,7 +32,9 @@ public class NewRelicSink implements MetricsSink {
  private Logger logger;
  private Context context;
  private ComponentData component;
-
+ private HashMap<Integer, String> metricBaseNames;
+ private HashMap<Integer, String> metricNames;
+ 
  @Override
  public void init(SubsetConfiguration conf) {
      	 
@@ -54,81 +57,98 @@ public class NewRelicSink implements MetricsSink {
           throw new MetricsException("Error creating " + hadoopProcType + ".nrdebug.log", e);
         }
      } else {
-         if ( "".equals(nrLicenseKey) ) {
+         if ( "".equals(nrLicenseKey) || (nrLicenseKey == null) ) {
          	System.err.println("ERROR: No New Relic License Key Given");
       		return;
       	 }
      }
      
-     if ( "".equals(nrHost) ) {
-         hadoopProcType = "staging-collector.newrelic.com/platform/v1/metrics";
+     if ( "".equals(nrHost) || (nrHost == null)) {
+    	 // nrHost = "staging-collector.newrelic.com/platform/v1/metrics";
+    	 nrHost = Context.SERVICE_URI_HOST;
      }
      
      context = buildContext(logger, nrLicenseKey, nrHost);
      component = context.getComponents().next();
+     
+     metricNames = new HashMap<Integer, String>();
+     metricBaseNames = new HashMap<Integer, String>();
  }
 
  @Override
  public void putMetrics(MetricsRecord record) {
-    Request request = new Request(context, NewRelicMetrics.kMetricInterval);
 	 
-    String metricBaseName = "Component" + div + "Hadoop" + div + hadoopProcType + div + record.context();
-    String metricNameTags = "", thisHostName = "", thisPort = "";
+	Request request = new Request(context, NewRelicMetrics.kMetricInterval);
+	String metricBaseName;
+	
+	if(!metricBaseNames.containsKey(record.tags().hashCode())) {
+		
+	    metricBaseName = "Component" + div + "Hadoop" + div + hadoopProcType + div + record.context();
+	    String metricNameTags = "", thisHostName = "", thisPort = "";
    
-    if (!record.context().toLowerCase().equals(record.name().toLowerCase())) {
-        metricBaseName = metricBaseName + div + record.name();
-    }
-       
-    for (MetricsTag thisTag : record.tags()) {
-        if(NewRelicMetrics.HadoopTags.containsKey(thisTag.name())) {
-            switch ((Integer)NewRelicMetrics.HadoopTags.get(thisTag.name())) {
-                case 0:
-                   break;
-                case 1:
-                    thisHostName = thisTag.value();
-                    break;
-                case 2:
-                    thisPort = thisTag.value();
-                    break;
-                default:
-                    break;           
-            }
-        } else {
-            metricNameTags = metricNameTags + div + thisTag.value();
-        }
-    }
-    
-    if(!thisHostName.isEmpty()) {
-            metricBaseName = metricBaseName + div + thisHostName;
-    } 
-    if(!thisPort.isEmpty()) {
-            metricBaseName = metricBaseName + div + thisPort;
-    }
-    if (!metricNameTags.isEmpty()) {
-        metricBaseName = metricBaseName + metricNameTags;
-    }
-    
+	    if (!record.context().toLowerCase().equals(record.name().toLowerCase())) {
+	        metricBaseName = metricBaseName + div + record.name();
+	    }
+	       
+	    for (MetricsTag thisTag : record.tags()) {
+	        if(NewRelicMetrics.HadoopTags.containsKey(thisTag.name())) {
+	            switch ((Integer)NewRelicMetrics.HadoopTags.get(thisTag.name())) {
+	                case 0:
+	                   break;
+	                case 1:
+	                    thisHostName = thisTag.value();
+	                    break;
+	                case 2:
+	                    thisPort = thisTag.value();
+	                    break;
+	                default:
+	                    break;           
+	            }
+	        } else {
+	            metricNameTags = metricNameTags + div + thisTag.value();
+	        }
+	    }
+	    
+	    if(!thisHostName.isEmpty()) {
+	            metricBaseName = metricBaseName + div + thisHostName;
+	    } 
+	    if(!thisPort.isEmpty()) {
+	            metricBaseName = metricBaseName + div + thisPort;
+	    }
+	    if (!metricNameTags.isEmpty()) {
+	        metricBaseName = metricBaseName + metricNameTags;
+	    }
+	    metricBaseNames.put(record.tags().hashCode(), metricBaseName);    	
+	} else {
+		metricBaseName = metricBaseNames.get(record.tags().hashCode());
+	}
+	
     for (Metric thisMetric : record.metrics()) {
-
-        try {
-            
-            // Skipping null metrics. 
-            // Also skipping "imax" and "imin" metrics,  which are constant and too large to chart
-            if((thisMetric.value() == null) || (thisMetric.name() == null) || 
-                    thisMetric.name().isEmpty() || thisMetric.value().toString().isEmpty() ||
-                    thisMetric.name().contains("_imin_") || thisMetric.name().contains("_imax_")) {
-                continue;
-            }
-            
-            String metricName;
-            float metricValue = thisMetric.value().floatValue();
-            
-            if((thisMetric.description() == null) || (thisMetric.description().trim().equals(""))
-                    || (record.context().equals("ugi"))) {
+    	
+        if((thisMetric.value() == null) || (thisMetric.name() == null) || 
+                thisMetric.name().isEmpty() || thisMetric.value().toString().isEmpty()) {
+        		// (Temporarily not) skipping "imax" and "imin" metrics,  which are constant and too large to chart
+        		// || thisMetric.name().contains("_imin_") || thisMetric.name().contains("_imax_")) {
+            continue;
+        }
+        
+    	String metricName;
+    	float metricValue = thisMetric.value().floatValue();
+    	
+    	if(!metricNames.containsKey(thisMetric.hashCode())) {
+    		
+            if((thisMetric.description() == null) || ("").equals(thisMetric.description().trim())) {
                 metricName = div + thisMetric.name();                
-            } else {
-                metricName = div + thisMetric.description();
-            }
+            } else if (thisMetric.description().trim().endsWith("for")) {
+        		int metricNameCropper = thisMetric.name().indexOf('_');
+        		if (metricNameCropper > 0) {
+        			metricName = div + thisMetric.description().trim() + " " + thisMetric.name().substring(0, metricNameCropper);
+        		} else {
+        			metricName = div + thisMetric.name();
+        		}
+        	} else {
+        		metricName = div + thisMetric.description();
+        	}
             
             if (NewRelicMetrics.HadoopMetrics.containsKey(thisMetric.name())) {
                 String metricType = NewRelicMetrics.HadoopMetrics.get(thisMetric.name());
@@ -143,19 +163,24 @@ public class NewRelicSink implements MetricsSink {
             } else if (!NewRelicMetrics.kDefaultMetricType.isEmpty()) {
                 metricName = metricName + "[" + NewRelicMetrics.kDefaultMetricType + "]";
             }
-            
-            if(debugEnabled.equals("true")) {
-                this.writer.print(metricBaseName + metricName);
-                this.writer.print("=");
-                this.writer.print(metricValue + "\n");
-            } else {
-            	request.addMetric(component, metricBaseName + metricName, metricValue);
-               // NewRelic.recordMetric(metricBaseName + metricName, metricValue);                
-            }
-            
-        } catch (NullPointerException e) {}
-    }   
-}
+            metricNames.put(thisMetric.hashCode(), metricName);
+    	} else {
+    		metricName = metricNames.get(thisMetric.hashCode());
+    	}
+    	
+    	if(debugEnabled.equals("true")) {
+            this.writer.print(metricBaseName + ", " + metricName + ", " 
+            		+ thisMetric.name() + ", " + metricValue + "\n");
+        } else {
+        	request.addMetric(component, metricBaseName + metricName, metricValue);
+            // NewRelic.recordMetric(metricBaseName + metricName, metricValue);                
+        }
+    }
+    
+    if(!debugEnabled.equals("true")) {
+    	request.send();
+    }
+ }
  
  @Override
  public void flush() {
@@ -167,13 +192,14 @@ public class NewRelicSink implements MetricsSink {
  public static Context buildContext(Logger logger, String licenseKey, String host) {
 		Context context = new Context(logger);
 		context.licenseKey = licenseKey;
-		context.serviceURI = "http://" + host;
+		context.serviceURI = Context.SERVICE_URI_PROTOCOL + host;
 		context.agentData.host = NewRelicMetrics.kHadoopAgentHost;
 		context.agentData.version = NewRelicMetrics.kHadoopAgentVersion;
 		
 		ComponentData component = context.createComponent();
 		component.guid = NewRelicMetrics.kHadoopAgentGuid;
 		component.name = NewRelicMetrics.kHadoopAgentName;
+		logger.info("NR URI: " + context.serviceURI);
 		return context;
 	}
 }
