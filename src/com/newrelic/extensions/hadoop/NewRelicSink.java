@@ -4,10 +4,6 @@ package com.newrelic.extensions.hadoop;
  * @author Seth Schwartzman
  */
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.logging.Logger;
 
@@ -16,7 +12,7 @@ import org.apache.hadoop.metrics2.Metric;
 import org.apache.hadoop.metrics2.MetricsRecord;
 import org.apache.hadoop.metrics2.MetricsSink;
 import org.apache.hadoop.metrics2.MetricsTag;
-import org.apache.hadoop.metrics2.MetricsException;
+// import org.apache.hadoop.metrics2.MetricsException;
 
 import com.newrelic.data.in.binding.ComponentData;
 import com.newrelic.data.in.binding.Context;
@@ -26,7 +22,6 @@ public class NewRelicSink implements MetricsSink {
     
  private String hadoopProcType = "";
  private String debugEnabled = "false";
- private PrintWriter writer;  
  private char div = NewRelicMetrics.kMetricTreeDivider;
  private String nrLicenseKey, nrHost;
  private Logger logger;
@@ -45,23 +40,15 @@ public class NewRelicSink implements MetricsSink {
      logger = Logger.getAnonymousLogger();
  
      if ( "".equals(hadoopProcType) ) {
-         hadoopProcType = "Hadoop";
+         hadoopProcType = conf.getPrefix();
      }
      
      debugEnabled = conf.getString("debug", "false");
-     
-     if (debugEnabled.equals("true")) {
-        try {
-          this.writer = (hadoopProcType == null ? new PrintWriter(new BufferedOutputStream(System.out)) : new PrintWriter(new FileWriter(new File(hadoopProcType + ".nrdebug.log"), true)));
-        } catch (Exception e) {
-          throw new MetricsException("Error creating " + hadoopProcType + ".nrdebug.log", e);
-        }
-     } else {
-         if ( "".equals(nrLicenseKey) || (nrLicenseKey == null) ) {
-         	System.err.println("ERROR: No New Relic License Key Given");
-      		return;
-      	 }
-     }
+    
+     if ( "".equals(nrLicenseKey) || (nrLicenseKey == null) ) {
+     	System.err.println("ERROR: No New Relic License Key Given");
+  		return;
+  	 }
      
      if ( "".equals(nrHost) || (nrHost == null)) {
     	 // nrHost = "staging-collector.newrelic.com/platform/v1/metrics";
@@ -169,25 +156,23 @@ public class NewRelicSink implements MetricsSink {
     	}
     	
     	if(debugEnabled.equals("true")) {
-            this.writer.print(metricBaseName + ", " + metricName + ", " 
-            		+ thisMetric.name() + ", " + metricValue + "\n");
+            logger.info(metricBaseName + ", " + metricName + ", " 
+            		+ thisMetric.name() + ", " + metricValue);
         } else {
         	request.addMetric(component, metricBaseName + metricName, metricValue);
             // NewRelic.recordMetric(metricBaseName + metricName, metricValue);                
         }
     }
     
-    if(!debugEnabled.equals("true")) {
+    if(debugEnabled.equals("true")) {
+    	logger.info("Debug is enabled on New Relic Hadoop Extension. Metrics will not be sent.");
+    } else {
     	request.send();
     }
  }
  
  @Override
- public void flush() {
-     if (debugEnabled.equals("true")) {
-         this.writer.flush();
-     }
- }
+ public void flush() {}
  
  public static Context buildContext(Logger logger, String licenseKey, String host) {
 		Context context = new Context(logger);
@@ -199,7 +184,7 @@ public class NewRelicSink implements MetricsSink {
 		ComponentData component = context.createComponent();
 		component.guid = NewRelicMetrics.kHadoopAgentGuid;
 		component.name = NewRelicMetrics.kHadoopAgentName;
-		logger.info("NR URI: " + context.serviceURI);
+		logger.finest("NR URI: " + context.serviceURI);
 		return context;
 	}
 }
