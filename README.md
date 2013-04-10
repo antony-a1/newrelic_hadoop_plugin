@@ -10,25 +10,25 @@ The latest packaged version of this agent can be found at this path and file nam
 
 ```
     https://github.com/newrelic-platform/newrelic_hadoop_extension.git
-    newrelic_hadoop_extension_bin_x.x.zip
+    newrelic_hadoop_extension_x.x.zip
 ```
 
 ### Add agent JARs to classpath
 
 This agent contains the JAR for the agent itself and the JSON-Simple JAR. Add these both to your Hadoop classpath, by either one of two ways:
 
-1. Edit <hadoop_root>/confg/hadoop_env.sh and revise the classpath to include these JARs:
+1. Edit [hadoop_root]/confg/hadoop_env.sh and revise the classpath to include these JARs:
 ```
 # Extra Java CLASSPATH elements.  Optional.
 export HADOOP_CLASSPATH=/path/to/extension/hadoop_newrelic_extension.jar:/path/to/extension/json-simple-1.1.1.jar
 ```
 OR
 
-2. Add these 2 JARs to the existing <hadoop_root>/lib directory, which should already be in the hadoop classpath.
+2. Add these 2 JARs to the existing [hadoop_root]/lib directory, which should already be in the hadoop classpath.
 
 ### Add & edit the sink configuration
 
-* If you are not using any other metric sinks, you can simply backup the existing <hadoop_root>/conf/hadoop-metrics2.properties file and replace it with the one in this agent.
+* If you are not using any other metric sinks, you can simply backup the existing [hadoop_root]/conf/hadoop-metrics2.properties file and replace it with the one in this agent.
 * If you are using other metric sinks, you can append the contents of this file to your existing hadoop-metrics2.properties file.
 
 Update the hadoop-metrics2.properties file to have your license key.
