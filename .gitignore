@@ -5,3 +5,4 @@
 *.MF
 
 *.prefs
+/newrelic_hadoop_extension

@@ -179,7 +179,7 @@ public class NewRelicSink implements MetricsSink {
     	if(debugEnabled) {
             logger.info(metricBaseName + ", " + metricName + ", " 
             		+ thisMetric.name() + ", " + metricValue);
-            if (getGroupings && (metricGroupingName != null) && (metricType != null)) {
+            if (getGroupings) {
         		metricGrouper(metricGroupingName, metricType);
         	}
         } else {
@@ -217,11 +217,13 @@ public class NewRelicSink implements MetricsSink {
 } 
 
  public void metricGrouper(String metricGroupingName, String metricGroupingType) {
-	 String metricGrouping = "/" + metricGroupingName + "/*[" + metricGroupingType + "]";
-	 if(metricGroupings.containsKey(metricGrouping)) {
-		 metricGroupings.put(metricGrouping, metricGroupings.get(metricGrouping) + 1);
-	 } else {
-		 metricGroupings.put(metricGrouping, 1);
+	 if ((metricGroupingName != null) && (metricGroupingType != null)) {
+	 	 String metricGrouping = "/" + metricGroupingName + "/*[" + metricGroupingType + "]";
+		 if(metricGroupings.containsKey(metricGrouping)) {
+			 metricGroupings.put(metricGrouping, metricGroupings.get(metricGrouping) + 1);
+		 } else {
+			 metricGroupings.put(metricGrouping, 1);
+		 }
 	 }
 }
  
