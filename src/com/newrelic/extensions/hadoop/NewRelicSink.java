@@ -5,6 +5,7 @@ package com.newrelic.extensions.hadoop;
  */
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import org.apache.commons.configuration.SubsetConfiguration;
@@ -21,7 +22,7 @@ import com.newrelic.data.in.binding.Request;
 public class NewRelicSink implements MetricsSink {
     
  private String hadoopProcType = "";
- private String debugEnabled = "false";
+ private boolean debugEnabled = false, getGroupings = false;
  private char div = NewRelicMetrics.kMetricTreeDivider;
  private String nrLicenseKey, nrHost;
  private Logger logger;
@@ -29,24 +30,33 @@ public class NewRelicSink implements MetricsSink {
  private ComponentData component;
  private HashMap<Integer, String> metricBaseNames;
  private HashMap<Integer, String> metricNames;
+ private HashMap<String, Integer> metricGroupings;
  
  @Override
  public void init(SubsetConfiguration conf) {
-     	 
-     hadoopProcType = conf.getString("proctype");
+    
      nrHost = conf.getString("nrhost");
      nrLicenseKey = conf.getString("nrlicensekey");
      
      logger = Logger.getAnonymousLogger();
  
-     if ( "".equals(hadoopProcType) ) {
-         hadoopProcType = conf.getPrefix();
+	 if (conf.containsKey("proctype")) {
+		 hadoopProcType = conf.getString("proctype");	 
+	 } else {
+	     	System.out.println("Monitoring disabled for this procees.");
+	     	System.out.println("Shutting down New Relic sink.");
+	  		return;
+	 }
+     nrHost = conf.getString("nrhost");
+     nrLicenseKey = conf.getString("nrlicensekey");
+     if (conf.getString("debug", "false").equals("true")) {
+    	 debugEnabled = true;
+    	 System.out.println("New Relic Sink: DEBUG enabled.");
      }
-     
-     debugEnabled = conf.getString("debug", "false");
     
-     if ( "".equals(nrLicenseKey) || (nrLicenseKey == null) ) {
-     	System.err.println("ERROR: No New Relic License Key Given");
+     if ( "".equals(nrLicenseKey) || (nrLicenseKey == null)) {
+     	System.out.println("No New Relic License Key given.");
+     	System.out.println("Shutting down New Relic sink.");
   		return;
   	 }
      
@@ -60,23 +70,28 @@ public class NewRelicSink implements MetricsSink {
      
      metricNames = new HashMap<Integer, String>();
      metricBaseNames = new HashMap<Integer, String>();
+     if (conf.getString("nrgroupings", "false").equals("true")) {
+    	 getGroupings = true;
+    	 metricGroupings = new HashMap<String, Integer>();
+    	 System.out.println("New Relic Sink: Getting Metric Groupings");
+     }
  }
 
  @Override
  public void putMetrics(MetricsRecord record) {
 	 
 	Request request = new Request(context, NewRelicMetrics.kMetricInterval);
-	String metricBaseName;
+	String metricBaseName, metricGroupingName = null;
 	
 	if(!metricBaseNames.containsKey(record.tags().hashCode())) {
-		
-	    metricBaseName = "Component" + div + "Hadoop" + div + hadoopProcType + div + record.context();
-	    String metricNameTags = "", thisHostName = "", thisPort = "";
-   
-	    if (!record.context().toLowerCase().equals(record.name().toLowerCase())) {
-	        metricBaseName = metricBaseName + div + record.name();
-	    }
-	       
+		String metricNameTags = "", thisHostName = "", thisPort = "";
+   	    metricBaseName = getMetricGroupingName(record);	    
+	        
+	    // Metric Grouping is based on process & context, but not broken up by tags
+	    if (getGroupings) {
+	    	metricGroupingName = metricBaseName;
+	    }	
+	    
 	    for (MetricsTag thisTag : record.tags()) {
 	        if(NewRelicMetrics.HadoopTags.containsKey(thisTag.name())) {
 	            switch ((Integer)NewRelicMetrics.HadoopTags.get(thisTag.name())) {
@@ -105,9 +120,12 @@ public class NewRelicSink implements MetricsSink {
 	    if (!metricNameTags.isEmpty()) {
 	        metricBaseName = metricBaseName + metricNameTags;
 	    }
-	    metricBaseNames.put(record.tags().hashCode(), metricBaseName);    	
+	    metricBaseNames.put(record.tags().hashCode(), metricBaseName);
 	} else {
 		metricBaseName = metricBaseNames.get(record.tags().hashCode());
+		if (getGroupings) {
+			metricGroupingName = getMetricGroupingName(record);
+		}
 	}
 	
     for (Metric thisMetric : record.metrics()) {
@@ -119,7 +137,7 @@ public class NewRelicSink implements MetricsSink {
             continue;
         }
         
-    	String metricName;
+    	String metricName, metricType = null;
     	float metricValue = thisMetric.value().floatValue();
     	
     	if(!metricNames.containsKey(thisMetric.hashCode())) {
@@ -138,7 +156,7 @@ public class NewRelicSink implements MetricsSink {
         	}
             
             if (NewRelicMetrics.HadoopMetrics.containsKey(thisMetric.name())) {
-                String metricType = NewRelicMetrics.HadoopMetrics.get(thisMetric.name());
+                metricType = NewRelicMetrics.HadoopMetrics.get(thisMetric.name());
                 metricName = metricName + "[" + metricType + "]";
                 if (metricType.equals("bytes")) {
                     if(thisMetric.name().endsWith("GB")) {
@@ -146,26 +164,36 @@ public class NewRelicSink implements MetricsSink {
                     } else if (thisMetric.name().endsWith("M")) {
                         metricValue = metricValue * NewRelicMetrics.kMegabytesToBytes;   
                     }
-                }             
-            } else if (!NewRelicMetrics.kDefaultMetricType.isEmpty()) {
-                metricName = metricName + "[" + NewRelicMetrics.kDefaultMetricType + "]";
-            }
-            metricNames.put(thisMetric.hashCode(), metricName);
-    	} else {
-    		metricName = metricNames.get(thisMetric.hashCode());
-    	}
+                }    
+                } else if (!NewRelicMetrics.kDefaultMetricType.isEmpty()) {
+                	metricName = metricName + "[" + NewRelicMetrics.kDefaultMetricType + "]";
+                	metricType = NewRelicMetrics.kDefaultMetricType;
+                } else {
+                	metricType = "ms";
+                }
+            	metricNames.put(thisMetric.hashCode(), metricName);
+		} else {
+			metricName = metricNames.get(thisMetric.hashCode());
+		}
     	
-    	if(debugEnabled.equals("true")) {
+    	if(debugEnabled) {
             logger.info(metricBaseName + ", " + metricName + ", " 
             		+ thisMetric.name() + ", " + metricValue);
+            if (getGroupings && (metricGroupingName != null) && (metricType != null)) {
+        		metricGrouper(metricGroupingName, metricType);
+        	}
         } else {
         	request.addMetric(component, metricBaseName + metricName, metricValue);
             // NewRelic.recordMetric(metricBaseName + metricName, metricValue);                
         }
     }
     
-    if(debugEnabled.equals("true")) {
+    if(debugEnabled) {
     	logger.info("Debug is enabled on New Relic Hadoop Extension. Metrics will not be sent.");
+    	if(getGroupings) {
+    		logger.info("Outputting metric groupings from the current Metrics Record.");
+    		putGroupings(); 
+    	}
     } else {
     	request.send();
     }
@@ -175,16 +203,40 @@ public class NewRelicSink implements MetricsSink {
  public void flush() {}
  
  public static Context buildContext(Logger logger, String licenseKey, String host) {
-		Context context = new Context(logger);
-		context.licenseKey = licenseKey;
-		context.serviceURI = Context.SERVICE_URI_PROTOCOL + host;
-		context.agentData.host = NewRelicMetrics.kHadoopAgentHost;
-		context.agentData.version = NewRelicMetrics.kHadoopAgentVersion;
-		
-		ComponentData component = context.createComponent();
-		component.guid = NewRelicMetrics.kHadoopAgentGuid;
-		component.name = NewRelicMetrics.kHadoopAgentName;
-		logger.finest("NR URI: " + context.serviceURI);
-		return context;
+	Context context = new Context(logger);
+	context.licenseKey = licenseKey;
+	context.serviceURI = Context.SERVICE_URI_PROTOCOL + host;
+	context.agentData.host = NewRelicMetrics.kHadoopAgentHost;
+	context.agentData.version = NewRelicMetrics.kHadoopAgentVersion;
+	
+	ComponentData component = context.createComponent();
+	component.guid = NewRelicMetrics.kHadoopAgentGuid;
+	component.name = NewRelicMetrics.kHadoopAgentName;
+	logger.finest("NR URI: " + context.serviceURI);
+	return context;
+} 
+
+ public void metricGrouper(String metricGroupingName, String metricGroupingType) {
+	 String metricGrouping = "/" + metricGroupingName + "/*[" + metricGroupingType + "]";
+	 if(metricGroupings.containsKey(metricGrouping)) {
+		 metricGroupings.put(metricGrouping, metricGroupings.get(metricGrouping) + 1);
+	 } else {
+		 metricGroupings.put(metricGrouping, 1);
+	 }
+}
+ 
+ public void putGroupings() {
+	for (Map.Entry<String, Integer> grouping : metricGroupings.entrySet()) { 
+			logger.info(grouping.getKey() + " : " + grouping.getValue()); 
 	}
 }
+ 
+public String getMetricGroupingName(MetricsRecord thisRecord) {
+	 String metricGroupingName = "Component" + div + "Hadoop" + div + hadoopProcType + div + thisRecord.context();
+	 if (!thisRecord.context().toLowerCase().equals(thisRecord.name().toLowerCase())) {
+		 metricGroupingName = metricGroupingName + div + thisRecord.name();
+	 }
+	 return metricGroupingName;
+} }
+
+

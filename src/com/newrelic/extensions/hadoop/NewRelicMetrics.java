@@ -7,7 +7,7 @@ public class NewRelicMetrics {
 	   static final HashMap<String, String> HadoopMetrics = new HashMap<String, String>();
 	   static final HashMap<String, Object> HadoopTags = new HashMap<String, Object>();
 	   
-	   public static final String kDefaultMetricType="";
+	   public static final String kDefaultMetricType="ms";
 	   public static final int kMetricInterval = 60;
 	   public static final char kMetricTreeDivider='/';
 	   public static final float kGigabytesToBytes=1073741824;
