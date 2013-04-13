@@ -1,4 +1,7 @@
-# New Relic Hadoop Extension
+newrelic_hadoop_extension
+===============================
+
+New Relic Hadoop Extension
 
 This extension acts as a sink for Hadoop Metrics2 framework, using the New Relic Platform Java SDK.
 
