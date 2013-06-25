@@ -187,9 +187,8 @@ public class NewRelicMetrics {
 	    
 	    // 0 = skip, 1 = host, 2 = port
 	    static {	
-	    	// Skipping hostname & port to minimize metric count. Will add back if deemed valuable.
-	        // HadoopTags.put("hostName", 1);
-	        // HadoopTags.put("port", 2);
+	        HadoopTags.put("hostName", 1);
+	        HadoopTags.put("port", 2);
 	        HadoopTags.put("hostName", 0);
 	        HadoopTags.put("port", 0);
 	        HadoopTags.put("context", 0);

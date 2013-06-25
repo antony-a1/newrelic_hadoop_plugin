@@ -76,6 +76,7 @@ public class NewRelicSink implements MetricsSink {
 		}
 	}
 
+	@SuppressWarnings("unused")
 	@Override
 	public void putMetrics(MetricsRecord record) {
 
@@ -90,7 +91,9 @@ public class NewRelicSink implements MetricsSink {
 			String metricNameTags = "", thisHostName = "", thisPort = "";
 
 			for (MetricsTag thisTag : record.tags()) {
-				if(NewRelicMetrics.HadoopTags.containsKey(thisTag.name())) {
+				if ((thisTag.value() == null) || thisTag.value().isEmpty())
+					continue;
+				else if(NewRelicMetrics.HadoopTags.containsKey(thisTag.name())) {
 					switch ((Integer)NewRelicMetrics.HadoopTags.get(thisTag.name())) {
 					case 0:
 						break;
@@ -103,11 +106,14 @@ public class NewRelicSink implements MetricsSink {
 					default:
 						break;           
 					}
-				} else {
+				} else if (metricNameTags.isEmpty()) 
+					metricNameTags = thisTag.value();
+				else
 					metricNameTags = metricNameTags + div + thisTag.value();
-				}
 			}
-
+			
+	    	// Skipping hostname & port to minimize metric count. Will add back if deemed valuable.
+			/* 
 			if(!thisPort.isEmpty()) {
 				metricBase = metricBase + div + thisPort;
 				metricDeltaBase = metricDeltaBase + div + thisPort;
@@ -115,12 +121,14 @@ public class NewRelicSink implements MetricsSink {
 			if(!thisHostName.isEmpty()) {
 				metricBase = metricBase + div + thisHostName;
 				metricDeltaBase = metricDeltaBase + div + thisHostName;
-			}
+			} 
+			*/
+			
 			if (!metricNameTags.isEmpty()) {
 				metricBase = metricBase + div + metricNameTags;
 				metricDeltaBase = metricDeltaBase + div + metricNameTags;
 			}
-
+			
 			metricBases = new String[]{metricBase, metricDeltaBase};
 			metricBaseNames.put(record.tags().hashCode(), metricBases);
 		} 
@@ -129,7 +137,7 @@ public class NewRelicSink implements MetricsSink {
 
 			if((thisMetric.value() == null) || (thisMetric.name() == null) || 
 					thisMetric.name().isEmpty() || thisMetric.value().toString().isEmpty()) {
-				// (Temporarily not) skipping "imax" and "imin" metrics,  which are constant and too large to chart
+				// NOT skipping "imax" and "imin" metrics,  which are constant and rather large
 				// || thisMetric.name().contains("_imin_") || thisMetric.name().contains("_imax_")) {
 				continue;
 			}
@@ -225,7 +233,7 @@ public class NewRelicSink implements MetricsSink {
 
 	public String getMetricBaseName(MetricsRecord thisRecord, String metricPrefix) {
 		String metricGroupingName = metricPrefix + div + thisRecord.context();
-		if (!thisRecord.context().toLowerCase().equals(thisRecord.name().toLowerCase()))
+		if (!thisRecord.context().toLowerCase().equals(thisRecord.name().toLowerCase()) && !thisRecord.name().isEmpty())
 			metricGroupingName = metricGroupingName + div + thisRecord.name();
 		return metricGroupingName;
 	} 
