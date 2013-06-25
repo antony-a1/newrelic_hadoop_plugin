@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Newrelic hadoop plugin : New Relic Plugin for Hadoop" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Newrelic hadoop plugin</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/sschwartzman/newrelic_hadoop_plugin">View on GitHub</a>
+
+          <h1 id="project_title">Newrelic hadoop plugin</h1>
+          <h2 id="project_tagline">New Relic Plugin for Hadoop</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/sschwartzman/newrelic_hadoop_plugin/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/sschwartzman/newrelic_hadoop_plugin/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a name="hadoop-plugin-for-new-relic" class="anchor" href="#hadoop-plugin-for-new-relic"><span class="octicon octicon-link"></span></a>Hadoop Plugin for New Relic</h1>
+
+<p>This plugin acts as a sink for the Hadoop Metrics2 framework, using the New Relic Plugin Java SDK.</p>
+
+<h2>
+<a name="getting-started" class="anchor" href="#getting-started"><span class="octicon octicon-link"></span></a>Getting Started</h2>
+
+<p>You can get this plugin up and running in your Hadoop environment in 5 easy steps.</p>
+
+<h4>
+<a name="1-download-and-extract-the-agent-onto-your-hadoop-servers" class="anchor" href="#1-download-and-extract-the-agent-onto-your-hadoop-servers"><span class="octicon octicon-link"></span></a>1. Download and extract the agent onto your Hadoop server(s)</h4>
+
+<p>The latest packaged (JAR) version of this agent can be found at this path and file name:</p>
+
+<pre><code>    https://github.com/sschwartzman/newrelic_hadoop_plugin.git
+    bin/newrelic_hadoop_plugin.jar
+</code></pre>
+
+<h4>
+<a name="2-add-agent-jars-to-classpath" class="anchor" href="#2-add-agent-jars-to-classpath"><span class="octicon octicon-link"></span></a>2. Add agent JARs to classpath</h4>
+
+<p>Add this jar to your Hadoop classpath, by either one of two ways:
+1. Edit [hadoop_root]/confg/hadoop_env.sh and revise the classpath to include the plugin JAR:</p>
+
+<pre><code># Extra Java CLASSPATH elements.  Optional.
+export HADOOP_CLASSPATH=/path/to/extension/hadoop_newrelic_plugin.jar
+</code></pre>
+
+<p>OR
+2. Add the plugin JAR to the existing [hadoop_root]/lib directory, which should already be in the hadoop classpath.</p>
+
+<h4>
+<a name="3-add--edit-the-sink-configuration" class="anchor" href="#3-add--edit-the-sink-configuration"><span class="octicon octicon-link"></span></a>3. Add &amp; edit the sink configuration</h4>
+
+<ul>
+<li>The sink configuration is found in this plugin at conf/hadoop-metrics2.properties</li>
+<li>If you are not using any other metric sinks, you can simply backup the existing [hadoop_root]/conf/hadoop-metrics2.properties file and replace it with the one in this agent.</li>
+<li>If you are using other metric sinks, you can append the contents of this file to your existing hadoop-metrics2.properties file.</li>
+</ul><h4>
+<a name="4-update-the-hadoop-metrics2properties-file-to-have-your-license-key" class="anchor" href="#4-update-the-hadoop-metrics2properties-file-to-have-your-license-key"><span class="octicon octicon-link"></span></a>4. Update the hadoop-metrics2.properties file to have your license key.</h4>
+
+<pre><code># Enter your license token here
+*.sink.newrelic.nrlicensekey=[your_license_key_here]
+</code></pre>
+
+<h4>
+<a name="5-restart-your-hadoop-processes-and-thats-it" class="anchor" href="#5-restart-your-hadoop-processes-and-thats-it"><span class="octicon octicon-link"></span></a>5. Restart your Hadoop processes... and that's it!</h4>
+
+<h2>
+<a name="notes" class="anchor" href="#notes"><span class="octicon octicon-link"></span></a>Notes:</h2>
+
+<ul>
+<li>You can disable metrics for certain processes by editing hadoop-metrics2.properties. </li>
+<li>You can also use the "debug" mode within hadoop-metrics2.properties. This will output metrics to the .out log file for that process rather than send them to New Relic, should you want to review the kinds of metrics that are being produced and if any are malformed.</li>
+<li>This plugin can be used to collect metrics from any custom "sources" you have defined in Metrics2. Minor updates to hadoop-metrics2.properties will be all that is required to get them.</li>
+</ul><h2>
+<a name="further-reading" class="anchor" href="#further-reading"><span class="octicon octicon-link"></span></a>Further Reading</h2>
+
+<p>This is a good article detailing the Hadoop Metrics2 Framework:
+<a href="http://blog.cloudera.com/blog/2012/10/what-is-hadoop-metrics2/">http://blog.cloudera.com/blog/2012/10/what-is-hadoop-metrics2/</a></p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Newrelic hadoop plugin maintained by <a href="https://github.com/sschwartzman">sschwartzman</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
