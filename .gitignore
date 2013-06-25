@@ -1,8 +1,3 @@
-/bin
-
-*.jar
-
-*.MF
-
+/lib/*.jar
 *.prefs
-/newrelic_hadoop_extension
+.gitignore
