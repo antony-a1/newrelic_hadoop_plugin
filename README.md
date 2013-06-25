@@ -5,7 +5,9 @@ This plugin acts as a sink for the Hadoop Metrics2 framework, using the New Reli
 
 ## Getting Started
 
-#### Download and extract the agent onto your Hadoop server(s) 
+You can get this plugin up and running in your Hadoop environment in 5 easy steps.
+
+#### 1. Download and extract the agent onto your Hadoop server(s) 
 
 The latest packaged version of this agent can be found at this path and file name:
 
@@ -14,7 +16,7 @@ The latest packaged version of this agent can be found at this path and file nam
     newrelic_hadoop_plugin_x.x.zip
 ```
 
-#### Add agent JARs to classpath
+#### 2. Add agent JARs to classpath
 
 This agent contains the JAR for the agent itself and the JSON-Simple JAR. Add these both to your Hadoop classpath, by either one of two ways:
 
@@ -27,20 +29,18 @@ OR
 
 2. Add these 2 JARs to the existing [hadoop_root]/lib directory, which should already be in the hadoop classpath.
 
-#### Add & edit the sink configuration
+#### 3. Add & edit the sink configuration
 
 * If you are not using any other metric sinks, you can simply backup the existing [hadoop_root]/conf/hadoop-metrics2.properties file and replace it with the one in this agent.
 * If you are using other metric sinks, you can append the contents of this file to your existing hadoop-metrics2.properties file.
 
-#### Update the hadoop-metrics2.properties file to have your license key.
+#### 4. Update the hadoop-metrics2.properties file to have your license key.
 ```
 # Enter your license token here
 *.sink.newrelic.nrlicensekey=[your_license_key_here]
 ```
 
-#### Restart your Hadoop processes
-
-#### And that's it! 
+#### 5. Restart your Hadoop processes... and that's it! 
 
 ## Notes:
 
