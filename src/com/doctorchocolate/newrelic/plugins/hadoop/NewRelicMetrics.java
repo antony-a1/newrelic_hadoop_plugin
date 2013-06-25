@@ -1,4 +1,4 @@
-package com.newrelic.extensions.hadoop;
+package com.doctorchocolate.newrelic.plugins.hadoop;
 
 import java.util.HashMap;
 
@@ -12,11 +12,11 @@ public class NewRelicMetrics {
 	   public static final char kMetricTreeDivider='/';
 	   public static final float kGigabytesToBytes=1073741824;
 	   public static final float kMegabytesToBytes=1048576;
+	   public static final String kCategoryMetricName="Component";
+	   public static final String kDeltaMetricName="delta";
 	   
-	   public static final String kHadoopAgentHost = "hadoop";
-	   public static final String kHadoopAgentVersion = "0.0.1";
-	   public static final String kHadoopAgentGuid = "com.newrelic.extensions.hadoop";
-	   public static final String kHadoopAgentName = "New Relic Hadoop Extension";
+	   public static final String kHadoopAgentVersion = "0.2";
+	   public static final String kHadoopAgentGuid = "com.doctorchocolate.newrelic.plugins.hadoop";
 	   
 	   static {	
 	        HadoopMetrics.put("shuffle_fetchers_busy_percent","%");
@@ -187,12 +187,16 @@ public class NewRelicMetrics {
 	    
 	    // 0 = skip, 1 = host, 2 = port
 	    static {	
-	        HadoopTags.put("hostName", 1);
-	        HadoopTags.put("port", 2);
+	    	// Skipping hostname & port to minimize metric count. Will add back if deemed valuable.
+	        // HadoopTags.put("hostName", 1);
+	        // HadoopTags.put("port", 2);
+	        HadoopTags.put("hostName", 0);
+	        HadoopTags.put("port", 0);
 	        HadoopTags.put("context", 0);
 	        HadoopTags.put("jobId", 0);
 	        HadoopTags.put("sessionId", 0);
 	        HadoopTags.put("taskId", 0);
 	        HadoopTags.put("context", 0);
+	        HadoopTags.put("processName", 0);
 	    }
 }

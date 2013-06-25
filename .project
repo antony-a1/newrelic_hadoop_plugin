@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>newrelic_hadoop_extension</name>
-	<comment></comment>
+	<name>newrelic_hadoop_plugin</name>
+	<comment>Hadoop Plugin for New Relic</comment>
 	<projects>
 	</projects>
 	<buildSpec>

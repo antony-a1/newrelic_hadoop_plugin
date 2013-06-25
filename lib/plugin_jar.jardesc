@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="MacRoman" standalone="no"?>
+<jardesc>
+    <jar path="newrelic_hadoop_plugin/bin/newrelic_hadoop_plugin.jar"/>
+    <options buildIfNeeded="true" compress="true" descriptionLocation="/newrelic_hadoop_plugin/lib/plugin_jar.jardesc" exportErrors="true" exportWarnings="true" includeDirectoryEntries="true" overwrite="true" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+    <storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+    <selectedProjects/>
+    <manifest generateManifest="true" manifestLocation="/newrelic_hadoop_plugin/META-INF/MANIFEST.MF" manifestVersion="1.0" reuseManifest="false" saveManifest="true" usesManifest="true">
+        <sealing sealJar="false">
+            <packagesToSeal/>
+            <packagesToUnSeal/>
+        </sealing>
+    </manifest>
+    <selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
+        <javaElement handleIdentifier="=metrics_publish_java/src"/>
+        <folder path="/newrelic_hadoop_plugin/META-INF"/>
+        <javaElement handleIdentifier="=newrelic_hadoop_plugin/src"/>
+    </selectedElements>
+</jardesc>
