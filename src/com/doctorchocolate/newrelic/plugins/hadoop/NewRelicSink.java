@@ -14,7 +14,6 @@ import org.apache.hadoop.metrics2.Metric;
 import org.apache.hadoop.metrics2.MetricsRecord;
 import org.apache.hadoop.metrics2.MetricsSink;
 import org.apache.hadoop.metrics2.MetricsTag;
-// import org.apache.hadoop.metrics2.MetricsException;
 
 import com.newrelic.metrics.publish.binding.ComponentData;
 import com.newrelic.metrics.publish.binding.Context;
@@ -26,13 +25,14 @@ public class NewRelicSink implements MetricsSink {
 	private boolean debugEnabled = false, getGroupings = false;
 	private char div = NewRelicMetrics.kMetricTreeDivider;
 	private String deltaName = NewRelicMetrics.kDeltaMetricName;
+	private String overviewName = NewRelicMetrics.kOverviewMetricName;
 	private String categoryName = NewRelicMetrics.kCategoryMetricName;
 	private String nrLicenseKey;
 	private Logger logger;
 	private Context context;
 	private ComponentData component;
-	private HashMap<Integer, String[]> metricBaseNames;
-	private HashMap<Integer, String> metricNames;
+	private HashMap<Integer, String> metricBaseNames;
+	private HashMap<Integer, String[]> metricNames;
 	private HashMap<Integer, Float> metricValues;
 	private HashMap<String, Integer> metricGroupings;
 
@@ -65,8 +65,8 @@ public class NewRelicSink implements MetricsSink {
 
 		component = context.getComponents().next();
 
-		metricNames = new HashMap<Integer, String>();
-		metricBaseNames = new HashMap<Integer, String[]>();
+		metricNames = new HashMap<Integer, String[]>();
+		metricBaseNames = new HashMap<Integer, String>();
 		metricValues = new HashMap<Integer, Float>();
 
 		if (conf.getString("nrgroupings", "false").equals("true")) {
@@ -81,13 +81,12 @@ public class NewRelicSink implements MetricsSink {
 	public void putMetrics(MetricsRecord record) {
 
 		Request request = new Request(context, NewRelicMetrics.kMetricInterval);
-		String[] metricBases;
+		String metricBaseName;
 
 		if(metricBaseNames.containsKey(record.tags().hashCode()))
-			metricBases = metricBaseNames.get(record.tags().hashCode());	
+			metricBaseName = metricBaseNames.get(record.tags().hashCode());	
 		else {
-			String metricBase = getMetricBaseName(record, categoryName);
-			String metricDeltaBase = getMetricBaseName(record, categoryName + div + deltaName);
+			metricBaseName = getMetricBaseName(record, "");
 			String metricNameTags = "", thisHostName = "", thisPort = "";
 
 			for (MetricsTag thisTag : record.tags()) {
@@ -124,29 +123,34 @@ public class NewRelicSink implements MetricsSink {
 			} 
 			*/
 			
-			if (!metricNameTags.isEmpty()) {
-				metricBase = metricBase + div + metricNameTags;
-				metricDeltaBase = metricDeltaBase + div + metricNameTags;
-			}
+			if (!metricNameTags.isEmpty())
+				metricBaseName = metricBaseName + div + metricNameTags;
 			
-			metricBases = new String[]{metricBase, metricDeltaBase};
-			metricBaseNames.put(record.tags().hashCode(), metricBases);
+			metricBaseNames.put(record.tags().hashCode(), metricBaseName);
 		} 
-
+		
+		String[] thisRecordMetricBases = new String[] {
+				categoryName + div + metricBaseName,
+				categoryName + div + deltaName + div + metricBaseName,
+				categoryName + div + overviewName + div + metricBaseName,
+				categoryName + div + overviewName + "_" + deltaName + div + metricBaseName
+		};
+		
 		for (Metric thisMetric : record.metrics()) {
 
 			if((thisMetric.value() == null) || (thisMetric.name() == null) || 
-					thisMetric.name().isEmpty() || thisMetric.value().toString().isEmpty()) {
+				thisMetric.name().isEmpty() || thisMetric.value().toString().isEmpty()) {
 				// NOT skipping "imax" and "imin" metrics,  which are constant and rather large
 				// || thisMetric.name().contains("_imin_") || thisMetric.name().contains("_imax_")) {
 				continue;
 			}
 
-			String metricName, metricType = null;
+			String metricName, metricType;
 			float metricValue = thisMetric.value().floatValue();
 
 			if(metricNames.containsKey(thisMetric.hashCode())) {
-				metricName = metricNames.get(thisMetric.hashCode());
+				metricName = metricNames.get(thisMetric.hashCode())[0];
+				metricType = metricNames.get(thisMetric.hashCode())[1];
 			} else {
 				if((thisMetric.description() == null) || ("").equals(thisMetric.description().trim()))
 					metricName = div + thisMetric.name();                
@@ -167,26 +171,31 @@ public class NewRelicSink implements MetricsSink {
 						else if (thisMetric.name().endsWith("M"))
 							metricValue = metricValue * NewRelicMetrics.kMegabytesToBytes;   
 					}    
-				} else if (!NewRelicMetrics.kDefaultMetricType.isEmpty())
+				} else
 					metricType = NewRelicMetrics.kDefaultMetricType;
-				else
-					metricType = "ms";
-
-				metricName = metricName + "[" + metricType + "]";
-				metricNames.put(thisMetric.hashCode(), metricName);
+				
+				metricNames.put(thisMetric.hashCode(), new String[]{metricName, metricType});
 
 				if (debugEnabled && getGroupings) {
 					metricGrouper(getMetricBaseName(record, categoryName), metricType);
 					metricGrouper(getMetricBaseName(record, categoryName + div + deltaName), metricType);
 				}
-			}			
-
-			addMetric(request, metricBases[0] + metricName, thisMetric.name(), metricValue);
-
-			// If exists, use old metric value from hashmap for Delta, then replace with new one.
+			}						
+			
+			// If old metric value exists, use it to compute Delta, then replace with new one.
+			float deltaMetricValue = 0;
 			if(metricValues.containsKey(thisMetric.hashCode()))
-				addMetric(request, metricBases[1] + metricName, thisMetric.name(), Math.abs(metricValue - metricValues.get(thisMetric.hashCode())));
+				deltaMetricValue = Math.abs(metricValue - metricValues.get(thisMetric.hashCode()));	
+			
 			metricValues.put(thisMetric.hashCode(), metricValue);
+			
+			addMetric(request, thisRecordMetricBases[0] + metricName, thisMetric.name(), metricType, metricValue);
+			addMetric(request, thisRecordMetricBases[1] + metricName, thisMetric.name(), metricType, deltaMetricValue);
+						
+			if(record.name().equalsIgnoreCase(hadoopProcType) && NewRelicMetrics.HadoopOverviewMetrics.contains(metricType)) {
+				addMetric(request, thisRecordMetricBases[2] + metricName, thisMetric.name(), metricType, metricValue);
+				addMetric(request, thisRecordMetricBases[3] + metricName, thisMetric.name(), metricType, deltaMetricValue);		
+			}	
 		}
 
 		if(debugEnabled) {
@@ -195,9 +204,8 @@ public class NewRelicSink implements MetricsSink {
 				logger.info("Outputting metric groupings from the current Metrics Record.");
 				for (Map.Entry<String, Integer> grouping : metricGroupings.entrySet()) { logger.info(grouping.getKey() + " : " + grouping.getValue()); }
 			}
-		} else {
+		} else
 			request.send();
-		}
 	}
 
 	@Override
@@ -232,18 +240,21 @@ public class NewRelicSink implements MetricsSink {
 	}
 
 	public String getMetricBaseName(MetricsRecord thisRecord, String metricPrefix) {
-		String metricGroupingName = metricPrefix + div + thisRecord.context();
-		if (!thisRecord.context().toLowerCase().equals(thisRecord.name().toLowerCase()) && !thisRecord.name().isEmpty())
+		String metricGroupingName = "";
+		if(!metricPrefix.isEmpty())
+			metricGroupingName = metricPrefix + div + thisRecord.context();
+		else
+			metricGroupingName = thisRecord.context();
+		if (!thisRecord.context().equalsIgnoreCase(thisRecord.name()) && !thisRecord.name().isEmpty())
 			metricGroupingName = metricGroupingName + div + thisRecord.name();
 		return metricGroupingName;
 	} 
 
-	public void addMetric(Request request, String metricName, String metricOrigName, Float metricValue) {
-		if(debugEnabled) {
-			logger.info(metricName + ", " + metricOrigName + ", " + metricValue);
-		} else {
-			request.addMetric(component, metricName, metricValue);
-		}
+	public void addMetric(Request request, String metricName, String metricOrigName, String metricType, Float metricValue) {
+		if(debugEnabled)
+			logger.info(metricName + ", " + metricOrigName + ", " + metricType + ", " + metricValue);
+		else
+			request.addMetric(component, metricName + "[" + metricType + "]", metricValue);
 	}
 }
 
