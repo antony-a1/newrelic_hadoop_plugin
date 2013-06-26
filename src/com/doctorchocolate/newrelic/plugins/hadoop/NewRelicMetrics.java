@@ -13,6 +13,7 @@ public class NewRelicMetrics {
 	public static final char kMetricTreeDivider='/';
 	public static final float kGigabytesToBytes=1073741824;
 	public static final float kMegabytesToBytes=1048576;
+	public static final String kDefaultAgentName = "hadoop";
 	public static final String kCategoryMetricName="Component";
 	public static final String kDeltaMetricName="delta";
 	public static final String kOverviewMetricName="overview";

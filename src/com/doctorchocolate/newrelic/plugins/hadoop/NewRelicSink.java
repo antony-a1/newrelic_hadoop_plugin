@@ -6,7 +6,9 @@ package com.doctorchocolate.newrelic.plugins.hadoop;
 
 import java.net.UnknownHostException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.logging.Logger;
 
 import org.apache.commons.configuration.SubsetConfiguration;
@@ -21,35 +23,40 @@ import com.newrelic.metrics.publish.binding.Request;
 
 public class NewRelicSink implements MetricsSink {
 
-	private String hadoopProcType = "";
-	private boolean debugEnabled = false, getGroupings = false;
-	private char div = NewRelicMetrics.kMetricTreeDivider;
-	private String deltaName = NewRelicMetrics.kDeltaMetricName;
-	private String overviewName = NewRelicMetrics.kOverviewMetricName;
-	private String categoryName = NewRelicMetrics.kCategoryMetricName;
-	private String nrLicenseKey;
+	private boolean debugEnabled, getGroupings;
+	private char div;
+	private String hadoopProcType, categoryName, deltaName, overviewName, nrLicenseKey;
 	private Logger logger;
 	private Context context;
 	private ComponentData component;
 	private HashMap<Integer, String> metricBaseNames;
-	private HashMap<Integer, String[]> metricNames;
-	private HashMap<Integer, Float> metricValues;
 	private HashMap<String, Integer> metricGroupings;
+	private HashMap<String, String[]> metricNames;
+	private HashMap<String, Float> oldMetricValues;
+	private HashMap<String, Float> summaryMetrics;
 
 	@Override
 	public void init(SubsetConfiguration conf) {
-
+		debugEnabled = false;
+		getGroupings = false;
+		div = NewRelicMetrics.kMetricTreeDivider;
+		categoryName = NewRelicMetrics.kCategoryMetricName;
+		deltaName = NewRelicMetrics.kDeltaMetricName;
+		overviewName = NewRelicMetrics.kOverviewMetricName;
+		
 		logger = Context.getLogger();
 
-		if (conf.containsKey("proctype")) {
+		if (conf.containsKey("proctype"))
 			hadoopProcType = conf.getString("proctype");	 
-		} else {
+		else if (conf.containsKey("enabled"))
+			hadoopProcType = NewRelicMetrics.kDefaultAgentName;
+		else {
 			logger.info("Monitoring disabled for this procees.");
 			logger.info("Shutting down New Relic sink.");
 			return;
 		}
 
-		nrLicenseKey = conf.getString("nrlicensekey");  
+		nrLicenseKey = conf.getString("nrlicensekey", "");  
 		if ( "".equals(nrLicenseKey) || (nrLicenseKey == null)) {
 			logger.info("No New Relic License Key given.");
 			logger.info("Shutting down New Relic sink.");
@@ -57,23 +64,23 @@ public class NewRelicSink implements MetricsSink {
 		}
 
 		context = buildContext(nrLicenseKey, conf.getString("hostname", ""), hadoopProcType);
-
+		component = context.getComponents().next();
+		
 		if (conf.getString("debug", "false").equals("true")) {
 			debugEnabled = true;
 			logger.info("New Relic Sink: DEBUG enabled.");
 		}
-
-		component = context.getComponents().next();
-
-		metricNames = new HashMap<Integer, String[]>();
-		metricBaseNames = new HashMap<Integer, String>();
-		metricValues = new HashMap<Integer, Float>();
-
+		
 		if (conf.getString("nrgroupings", "false").equals("true")) {
 			getGroupings = true;
 			metricGroupings = new HashMap<String, Integer>();
 			logger.info("New Relic Sink: Getting Metric Groupings");
 		}
+		
+		metricBaseNames = new HashMap<Integer, String>();
+		metricNames = new HashMap<String, String[]>();
+		oldMetricValues = new HashMap<String, Float>();
+		summaryMetrics = new HashMap<String, Float>();	
 	}
 
 	@SuppressWarnings("unused")
@@ -82,127 +89,140 @@ public class NewRelicSink implements MetricsSink {
 
 		Request request = new Request(context, NewRelicMetrics.kMetricInterval);
 		String metricBaseName;
-
-		if(metricBaseNames.containsKey(record.tags().hashCode()))
-			metricBaseName = metricBaseNames.get(record.tags().hashCode());	
+		int recordHashCode = record.tags().hashCode();
+		
+		if(metricBaseNames.containsKey(recordHashCode))
+			metricBaseName = metricBaseNames.get(recordHashCode);	
 		else {
 			metricBaseName = getMetricBaseName(record, "");
-			String metricNameTags = "", thisHostName = "", thisPort = "";
+			String metricNameTags = "", hostname = "", port = "";
 
-			for (MetricsTag thisTag : record.tags()) {
-				if ((thisTag.value() == null) || thisTag.value().isEmpty())
+			for (MetricsTag tag : record.tags()) {
+				if ((tag.value() == null) || tag.value().isEmpty())
 					continue;
-				else if(NewRelicMetrics.HadoopTags.containsKey(thisTag.name())) {
-					switch ((Integer)NewRelicMetrics.HadoopTags.get(thisTag.name())) {
+				else if(NewRelicMetrics.HadoopTags.containsKey(tag.name())) {
+					switch ((Integer)NewRelicMetrics.HadoopTags.get(tag.name())) {
 					case 0:
 						break;
 					case 1:
-						thisHostName = thisTag.value();
+						hostname = tag.value();
 						break;
 					case 2:
-						thisPort = thisTag.value();
+						port = tag.value();
 						break;
 					default:
 						break;           
 					}
 				} else if (metricNameTags.isEmpty()) 
-					metricNameTags = thisTag.value();
+					metricNameTags = tag.value();
 				else
-					metricNameTags = metricNameTags + div + thisTag.value();
+					metricNameTags = metricNameTags + div + tag.value();
 			}
 			
 	    	// Skipping hostname & port to minimize metric count. Will add back if deemed valuable.
 			/* 
-			if(!thisPort.isEmpty()) {
-				metricBase = metricBase + div + thisPort;
-				metricDeltaBase = metricDeltaBase + div + thisPort;
+			if(!port.isEmpty()) {
+				metricBase = metricBase + div + port;
+				metricDeltaBase = metricDeltaBase + div + port;
 			} 
-			if(!thisHostName.isEmpty()) {
-				metricBase = metricBase + div + thisHostName;
-				metricDeltaBase = metricDeltaBase + div + thisHostName;
+			if(!hostname.isEmpty()) {
+				metricBase = metricBase + div + hostname;
+				metricDeltaBase = metricDeltaBase + div + hostname;
 			} 
 			*/
 			
 			if (!metricNameTags.isEmpty())
 				metricBaseName = metricBaseName + div + metricNameTags;
 			
-			metricBaseNames.put(record.tags().hashCode(), metricBaseName);
+			metricBaseNames.put(recordHashCode, metricBaseName);
 		} 
 		
-		String[] thisRecordMetricBases = new String[] {
+		String[] recordMetricBases = new String[] {
+				// Original metric
 				categoryName + div + metricBaseName,
+				// Delta Metric - grouped separately under 'delta'
 				categoryName + div + deltaName + div + metricBaseName,
+				// Overview Dashboard Metrics - grouped separately under 'overview' and 'overview_delta'
 				categoryName + div + overviewName + div + metricBaseName,
-				categoryName + div + overviewName + "_" + deltaName + div + metricBaseName
+				categoryName + div + overviewName + "_" + deltaName + div + metricBaseName,
+				// Summary Metrics - universally named (no context)
+				categoryName + div + overviewName
 		};
 		
-		for (Metric thisMetric : record.metrics()) {
-
-			if((thisMetric.value() == null) || (thisMetric.name() == null) || 
-				thisMetric.name().isEmpty() || thisMetric.value().toString().isEmpty()) {
+		// When iterating through metrics, if it finds a metric to be used in summary (one of the "overview metrics"), 
+		// it will set this to true and initialize the summary metrics to be aggregated.
+		Boolean hasOverview = false;
+				
+		for (Metric metric : record.metrics()) {			
+			if((metric.value() == null) || (metric.name() == null) || 
+				metric.name().isEmpty() || metric.value().toString().isEmpty()) {
 				// NOT skipping "imax" and "imin" metrics,  which are constant and rather large
-				// || thisMetric.name().contains("_imin_") || thisMetric.name().contains("_imax_")) {
+				// || metric.name().contains("_imin_") || metric.name().contains("_imax_")) {
 				continue;
 			}
-
+			
 			String metricName, metricType;
-			float metricValue = thisMetric.value().floatValue();
-
-			if(metricNames.containsKey(thisMetric.hashCode())) {
-				metricName = metricNames.get(thisMetric.hashCode())[0];
-				metricType = metricNames.get(thisMetric.hashCode())[1];
+			String metricHashCode = recordHashCode + "" + metric.hashCode();
+			Float metricValue = adjustMetricValue(metric).floatValue();
+					
+			if(metricNames.containsKey(metricHashCode)) {
+				metricName = metricNames.get(metricHashCode)[0];
+				metricType = metricNames.get(metricHashCode)[1];
 			} else {
-				if((thisMetric.description() == null) || ("").equals(thisMetric.description().trim()))
-					metricName = div + thisMetric.name();                
-				else if (thisMetric.description().trim().endsWith("for")) {
-					int metricNameCropper = thisMetric.name().indexOf('_');
-					if (metricNameCropper > 0)
-						metricName = div + thisMetric.description().trim() + " " + thisMetric.name().substring(0, metricNameCropper);
-					else
-						metricName = div + thisMetric.name();
-				} else
-					metricName = div + thisMetric.description();
-
-				if (NewRelicMetrics.HadoopMetrics.containsKey(thisMetric.name())) {
-					metricType = NewRelicMetrics.HadoopMetrics.get(thisMetric.name());
-					if (metricType.equals("bytes")) {
-						if(thisMetric.name().endsWith("GB"))
-							metricValue = metricValue * NewRelicMetrics.kGigabytesToBytes;
-						else if (thisMetric.name().endsWith("M"))
-							metricValue = metricValue * NewRelicMetrics.kMegabytesToBytes;   
-					}    
-				} else
-					metricType = NewRelicMetrics.kDefaultMetricType;
+				metricName = getMetricName(metric);
+				metricType = getMetricType(metric);
 				
-				metricNames.put(thisMetric.hashCode(), new String[]{metricName, metricType});
+				metricNames.put(metricHashCode, new String[]{metricName, metricType});
 
 				if (debugEnabled && getGroupings) {
-					metricGrouper(getMetricBaseName(record, categoryName), metricType);
-					metricGrouper(getMetricBaseName(record, categoryName + div + deltaName), metricType);
+					addMetricGroup(getMetricBaseName(record, categoryName), metricType);
+					addMetricGroup(getMetricBaseName(record, categoryName + div + deltaName), metricType);
 				}
 			}						
 			
-			// If old metric value exists, use it to compute Delta, then replace with new one.
-			float deltaMetricValue = 0;
-			if(metricValues.containsKey(thisMetric.hashCode()))
-				deltaMetricValue = Math.abs(metricValue - metricValues.get(thisMetric.hashCode()));	
-			
-			metricValues.put(thisMetric.hashCode(), metricValue);
-			
-			addMetric(request, thisRecordMetricBases[0] + metricName, thisMetric.name(), metricType, metricValue);
-			addMetric(request, thisRecordMetricBases[1] + metricName, thisMetric.name(), metricType, deltaMetricValue);
+			// Initialize delta to 0
+			// If old metric value exists, use it to compute delta. 
+			// In any case, set oldValue to use for next delta.
+			Float deltaMetricValue = (float) 0;
+			Float oldMetricValue = oldMetricValues.get(metricHashCode);
+			if ((oldMetricValue != null) && (metricValue > oldMetricValue))
+					deltaMetricValue = metricValue - oldMetricValue;	
 						
+			oldMetricValues.put(metricHashCode, metricValue);
+			
+			addMetric(request, recordMetricBases[0] + metricName, metric.name(), metricType, metricValue);
+			addMetric(request, recordMetricBases[1] + metricName, metric.name(), metricType, deltaMetricValue);
+			
 			if(record.name().equalsIgnoreCase(hadoopProcType) && NewRelicMetrics.HadoopOverviewMetrics.contains(metricType)) {
-				addMetric(request, thisRecordMetricBases[2] + metricName, thisMetric.name(), metricType, metricValue);
-				addMetric(request, thisRecordMetricBases[3] + metricName, thisMetric.name(), metricType, deltaMetricValue);		
+				// This record will fill the summary metrics, as it has overview metrics.
+				// If first metric of this record to have an overview metric, initializes summary metrics.
+				if (!hasOverview) {
+					hasOverview = true;
+					Iterator<String> initOverview = NewRelicMetrics.HadoopOverviewMetrics.iterator();
+					while (initOverview.hasNext()) {
+						summaryMetrics.put(initOverview.next(), (float) 0);
+					}
+					summaryMetrics.put(metricType, deltaMetricValue);
+				} else
+					summaryMetrics.put(metricType, summaryMetrics.get(metricType) + deltaMetricValue);
+					
+				addMetric(request, recordMetricBases[2] + metricName, metric.name(), metricType, metricValue);
+				addMetric(request, recordMetricBases[3] + metricName, metric.name(), metricType, deltaMetricValue);		
 			}	
 		}
-
+		
+		// Get summary metrics, reset each one after output.
+		for(Entry<String, Float> summaryMetric : summaryMetrics.entrySet()) {
+			addMetric(request, recordMetricBases[4] + div + "total " + summaryMetric.getKey(), summaryMetric.getKey(), summaryMetric.getKey(), summaryMetric.getValue());
+		}
+		
 		if(debugEnabled) {
 			logger.info("Debug is enabled on New Relic Hadoop Extension. Metrics will not be sent.");
 			if(getGroupings) {
 				logger.info("Outputting metric groupings from the current Metrics Record.");
-				for (Map.Entry<String, Integer> grouping : metricGroupings.entrySet()) { logger.info(grouping.getKey() + " : " + grouping.getValue()); }
+				for (Map.Entry<String, Integer> grouping : metricGroupings.entrySet()) { 
+					logger.info(grouping.getKey() + " : " + grouping.getValue()); 
+				}
 			}
 		} else
 			request.send();
@@ -210,7 +230,36 @@ public class NewRelicSink implements MetricsSink {
 
 	@Override
 	public void flush() {}
-
+	
+	public String getMetricName(Metric metric) {
+		
+		if((metric.description() == null) || ("").equals(metric.description().trim()))
+			return div + metric.name();                
+		else if (metric.description().trim().endsWith("for")) {
+			if (metric.name().contains("_"))
+				return div + metric.description().trim() + " " + metric.name().substring(0, metric.name().indexOf('_'));
+			else
+				return div + metric.name();
+		} else
+			return div + metric.description();
+	}
+	
+	public String getMetricType(Metric metric) {
+		if (NewRelicMetrics.HadoopMetrics.containsKey(metric.name())) {
+			return NewRelicMetrics.HadoopMetrics.get(metric.name());
+		} else
+			return NewRelicMetrics.kDefaultMetricType;
+	}
+	
+	public Number adjustMetricValue(Metric metric) {
+		if(metric.name().endsWith("GB"))
+			return metric.value().floatValue() * NewRelicMetrics.kGigabytesToBytes;
+		else if (metric.name().endsWith("M"))
+			return metric.value().floatValue() * NewRelicMetrics.kMegabytesToBytes;   
+		else 
+			return metric.value();
+	}
+	
 	public static Context buildContext(String licenseKey, String hostname, String proctype) {
 		Context context = new Context();
 		context.licenseKey = licenseKey;
@@ -229,7 +278,7 @@ public class NewRelicSink implements MetricsSink {
 		return context;
 	} 
 
-	public void metricGrouper(String metricGroupingName, String metricGroupingType) {
+	public void addMetricGroup(String metricGroupingName, String metricGroupingType) {
 		if ((metricGroupingName != null) && (metricGroupingType != null)) {
 			String metricGrouping = metricGroupingName + "/*[" + metricGroupingType + "]";
 			if(metricGroupings.containsKey(metricGrouping))
@@ -239,18 +288,18 @@ public class NewRelicSink implements MetricsSink {
 		}
 	}
 
-	public String getMetricBaseName(MetricsRecord thisRecord, String metricPrefix) {
+	public String getMetricBaseName(MetricsRecord record, String metricPrefix) {
 		String metricGroupingName = "";
 		if(!metricPrefix.isEmpty())
-			metricGroupingName = metricPrefix + div + thisRecord.context();
+			metricGroupingName = metricPrefix + div + record.context();
 		else
-			metricGroupingName = thisRecord.context();
-		if (!thisRecord.context().equalsIgnoreCase(thisRecord.name()) && !thisRecord.name().isEmpty())
-			metricGroupingName = metricGroupingName + div + thisRecord.name();
+			metricGroupingName = record.context();
+		if (!record.context().equalsIgnoreCase(record.name()) && !record.name().isEmpty())
+			metricGroupingName = metricGroupingName + div + record.name();
 		return metricGroupingName;
 	} 
 
-	public void addMetric(Request request, String metricName, String metricOrigName, String metricType, Float metricValue) {
+	public void addMetric(Request request, String metricName, String metricOrigName, String metricType, Number metricValue) {
 		if(debugEnabled)
 			logger.info(metricName + ", " + metricOrigName + ", " + metricType + ", " + metricValue);
 		else
