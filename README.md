@@ -7,26 +7,30 @@ This plugin acts as a sink for the Hadoop Metrics2 framework, using the New Reli
 
 You can get this plugin up and running in your Hadoop environment in 5 easy steps.
 
-#### 1. Download and extract the agent onto your Hadoop server(s) 
+#### 1. Download and extract the agent and supporting files onto your Hadoop server(s) 
 
 The latest packaged (JAR) version of this agent can be found at this path and file name:
-
 ```
     https://github.com/sschwartzman/newrelic_hadoop_plugin.git
     bin/newrelic_hadoop_plugin.jar
 ```
+The JSON Simple JAR is also needed to send metrics to New Relic:
+```
+https://code.google.com/p/json-simple/
+https://json-simple.googlecode.com/files/json-simple-1.1.1.jar
+```
 
 #### 2. Add agent JARs to classpath
 
-Add this jar to your Hadoop classpath, by either one of two ways:
+Add these JAR files to your Hadoop classpath, by either one of two ways:
 
-1. Edit [hadoop_root]/confg/hadoop_env.sh and revise the classpath to include the plugin JAR:
+1. Edit [hadoop_root]/confg/hadoop_env.sh and revise the classpath to include the  JARs:
 ```
 # Extra Java CLASSPATH elements.  Optional.
-export HADOOP_CLASSPATH=/path/to/extension/hadoop_newrelic_plugin.jar
+export HADOOP_CLASSPATH=/path/to/extension/hadoop_newrelic_plugin.jar:/path/to/extension/json-simple-1.1.1.jar
 ```
 OR
-2. Add the plugin JAR to the existing [hadoop_root]/lib directory, which should already be in the hadoop classpath.
+2. Add the JARs to the existing [hadoop_root]/lib directory, which should already be in the hadoop classpath.
 
 #### 3. Add & edit the sink configuration
 
