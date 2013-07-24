@@ -24,15 +24,15 @@ https://json-simple.googlecode.com/files/json-simple-1.1.1.jar
 
 Add these JAR files to your Hadoop classpath, by either one of two ways:
 
-1. Edit [hadoop_root]/confg/hadoop_env.sh and revise the classpath to include the  JARs:
+ * Edit [hadoop_root]/confg/hadoop_env.sh and revise the classpath to include the  JARs:
 
-```
-# Extra Java CLASSPATH elements.  Optional.
-export HADOOP_CLASSPATH=/path/to/extension/hadoop_newrelic_plugin.jar:/path/to/extension/json-simple-1.1.1.jar
-```
-
+  ```
+  # Extra Java CLASSPATH elements.  Optional.
+  export HADOOP_CLASSPATH=/[ext_path]/hadoop_newrelic_plugin.jar:/[ext_path]/json-simple-1.1.1.jar
+  ```
 OR
-2. Add the JARs to the existing [hadoop_root]/lib directory, which should already be in the hadoop classpath.
+
+ * Add the JARs to the existing [hadoop_root]/lib directory, which should already be in the hadoop classpath.
 
 #### 3. Add & edit the sink configuration
 
