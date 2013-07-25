@@ -1,4 +1,4 @@
-package com.doctorchocolate.newrelic.plugins.hadoop;
+package com.chocolatefactory.newrelic.plugins.hadoop;
 
 /**
  * @author Seth Schwartzman
@@ -12,7 +12,7 @@ import java.util.Map.Entry;
 import java.util.logging.Logger;
 
 import org.apache.commons.configuration.SubsetConfiguration;
-import org.apache.hadoop.metrics2.Metric;
+import org.apache.hadoop.metrics2.AbstractMetric;
 import org.apache.hadoop.metrics2.MetricsRecord;
 import org.apache.hadoop.metrics2.MetricsSink;
 import org.apache.hadoop.metrics2.MetricsTag;
@@ -86,7 +86,6 @@ public class NewRelicSink implements MetricsSink {
 	@SuppressWarnings("unused")
 	@Override
 	public void putMetrics(MetricsRecord record) {
-
 		Request request = new Request(context, NewRelicMetrics.kMetricInterval);
 		String metricBaseName;
 		int recordHashCode = record.tags().hashCode();
@@ -153,7 +152,7 @@ public class NewRelicSink implements MetricsSink {
 		// it will set this to true and initialize the summary metrics to be aggregated.
 		Boolean hasOverview = false;
 				
-		for (Metric metric : record.metrics()) {			
+		for (AbstractMetric metric : record.metrics()) {			
 			if((metric.value() == null) || (metric.name() == null) || 
 				metric.name().isEmpty() || metric.value().toString().isEmpty()) {
 				// NOT skipping "imax" and "imin" metrics,  which are constant and rather large
@@ -231,7 +230,7 @@ public class NewRelicSink implements MetricsSink {
 	@Override
 	public void flush() {}
 	
-	public String getMetricName(Metric metric) {
+	public String getMetricName(AbstractMetric metric) {
 		
 		if((metric.description() == null) || ("").equals(metric.description().trim()))
 			return div + metric.name();                
@@ -244,14 +243,14 @@ public class NewRelicSink implements MetricsSink {
 			return div + metric.description();
 	}
 	
-	public String getMetricType(Metric metric) {
+	public String getMetricType(AbstractMetric metric) {
 		if (NewRelicMetrics.HadoopMetrics.containsKey(metric.name())) {
 			return NewRelicMetrics.HadoopMetrics.get(metric.name());
 		} else
 			return NewRelicMetrics.kDefaultMetricType;
 	}
 	
-	public Number adjustMetricValue(Metric metric) {
+	public Number adjustMetricValue(AbstractMetric metric) {
 		if(metric.name().endsWith("GB"))
 			return metric.value().floatValue() * NewRelicMetrics.kGigabytesToBytes;
 		else if (metric.name().endsWith("M"))

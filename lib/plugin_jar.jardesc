@@ -11,12 +11,14 @@
         </sealing>
     </manifest>
     <selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
-        <javaElement handleIdentifier="=metrics_publish_java/src&lt;com.newrelic.metrics.publish.internal"/>
         <folder path="/newrelic_hadoop_plugin/META-INF"/>
+        <javaElement handleIdentifier="=metrics_publish_java/src&lt;com.newrelic.metrics.publish.internal"/>
+        <javaElement handleIdentifier="=newrelic_hadoop_plugin/src&lt;com.chocolatefactory.newrelic.plugins.hadoop{NewRelicSink.java"/>
         <javaElement handleIdentifier="=metrics_publish_java/src&lt;com.newrelic.metrics.publish.processors"/>
         <javaElement handleIdentifier="=metrics_publish_java/src&lt;com.newrelic.metrics.publish"/>
-        <javaElement handleIdentifier="=newrelic_hadoop_plugin/src&lt;com.doctorchocolate.newrelic.plugins.hadoop"/>
         <javaElement handleIdentifier="=metrics_publish_java/src&lt;com.newrelic.metrics.publish.binding"/>
+        <javaElement handleIdentifier="=newrelic_hadoop_plugin/src&lt;com.chocolatefactory.newrelic.plugins.hadoop{NewRelicMetrics.java"/>
+        <file path="/newrelic_hadoop_plugin/lib/json-simple-1.1.1.jar"/>
         <javaElement handleIdentifier="=metrics_publish_java/src&lt;com.newrelic.metrics.publish.configuration"/>
     </selectedElements>
 </jardesc>

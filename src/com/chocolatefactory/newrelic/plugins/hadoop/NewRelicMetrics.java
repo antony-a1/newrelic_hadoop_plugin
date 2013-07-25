@@ -1,4 +1,4 @@
-package com.doctorchocolate.newrelic.plugins.hadoop;
+package com.chocolatefactory.newrelic.plugins.hadoop;
 
 import java.util.HashMap;
 import java.util.HashSet;
