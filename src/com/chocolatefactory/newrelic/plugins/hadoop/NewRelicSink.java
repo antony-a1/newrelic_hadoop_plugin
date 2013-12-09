@@ -86,7 +86,7 @@ public class NewRelicSink implements MetricsSink {
 	@SuppressWarnings("unused")
 	@Override
 	public void putMetrics(MetricsRecord record) {
-		Request request = new Request(context, NewRelicMetrics.kMetricInterval);
+		Request request = new Request(context);
 		String metricBaseName;
 		int recordHashCode = record.tags().hashCode();
 		
@@ -224,7 +224,7 @@ public class NewRelicSink implements MetricsSink {
 				}
 			}
 		} else
-			request.send();
+			request.deliver();
 	}
 
 	@Override
